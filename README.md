@@ -1,20 +1,20 @@
-# keyd_manager
+# km
 
-`keyd_manager` formalizes the old ad hoc keyd helper into a real app under `~/Apps`.
+`km` formalizes the old ad hoc keyd helper into a real app under `~/Apps`.
 
 It manages one user-editable config:
 
-- `~/.config/keyd_manager/keyd.config`
+- `~/.config/km/keyd.config`
 
 ## Usage
 
 ```text
-keyd_manager -h
-keyd_manager -v
-keyd_manager -u
-keyd_manager conf
-keyd_manager apply
-keyd_manager status
+km -h
+km -v
+km -u
+km conf
+km apply
+km status
 ```
 
 ## Install
@@ -23,7 +23,7 @@ keyd_manager status
 ./install.sh -u
 ```
 
-That installs the latest released `keyd_manager` into `~/.keyd_manager/bin/keyd_manager`.
+That installs the latest released `km` into `~/.km/bin/km`, creates `~/.local/bin/km`, and removes the old `keyd_manager` install footprint.
 
 ## Release
 

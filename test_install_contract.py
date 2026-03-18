@@ -25,7 +25,7 @@ class InstallContractTests(unittest.TestCase):
                 bin_dir / "curl",
                 "#!/usr/bin/bash\n"
                 "if [[ \"$*\" == *\"releases/latest\"* ]]; then\n"
-                "  printf 'https://github.com/ryangerardwilson/keyd_manager/releases/tag/v0.1.0\\n'\n"
+                "  printf 'https://github.com/ryangerardwilson/km/releases/tag/v0.1.0\\n'\n"
                 "  exit 0\n"
                 "fi\n"
                 "echo unexpected curl call >&2\n"
@@ -58,14 +58,14 @@ class InstallContractTests(unittest.TestCase):
                 bin_dir / "curl",
                 "#!/usr/bin/bash\n"
                 "if [[ \"$*\" == *\"releases/latest\"* ]]; then\n"
-                "  printf 'https://github.com/ryangerardwilson/keyd_manager/releases/tag/v0.1.0\\n'\n"
+                "  printf 'https://github.com/ryangerardwilson/km/releases/tag/v0.1.0\\n'\n"
                 "  exit 0\n"
                 "fi\n"
                 "echo unexpected curl call >&2\n"
                 "exit 1\n",
             )
             self._write_executable(
-                bin_dir / "keyd_manager",
+                bin_dir / "km",
                 "#!/usr/bin/bash\n"
                 "if [[ \"$1\" == \"-v\" ]]; then\n"
                 "  printf '0.1.0\\n'\n"

@@ -9,41 +9,51 @@ from pathlib import Path
 from _version import __version__
 
 
-APP_NAME = "keyd_manager"
+APP_NAME = "km"
+LEGACY_APP_NAME = "keyd_manager"
 APP_ROOT = Path(__file__).resolve().parent
 ASSET_CONFIG = APP_ROOT / "assets" / "keyd.config"
 SYSTEM_CONFIG = Path("/etc/keyd/sticky_keys.conf")
-INSTALL_SCRIPT = Path(os.environ.get("KEYD_MANAGER_INSTALL_SCRIPT", APP_ROOT / "install.sh"))
+INSTALL_SCRIPT = Path(
+    os.environ.get("KM_INSTALL_SCRIPT")
+    or os.environ.get("KEYD_MANAGER_INSTALL_SCRIPT")
+    or APP_ROOT / "install.sh"
+)
 
-HELP_TEXT = """keyd_manager
+HELP_TEXT = """km
 edit, install, and inspect the managed keyd sticky-keys config
 
 flags:
-  keyd_manager -h
+  km -h
     show this help
-  keyd_manager -v
+  km -v
     print the installed version
-  keyd_manager -u
+  km -u
     upgrade to the latest release
 
 features:
   open the managed keyd config in your editor
-  # keyd_manager conf
-  keyd_manager conf
+  # km conf
+  km conf
 
   install the managed config into /etc/keyd and reload the service
-  # keyd_manager apply
-  keyd_manager apply
+  # km apply
+  km apply
 
   inspect the current keyd service status
-  # keyd_manager status
-  keyd_manager status
+  # km status
+  km status
 """
 
 
 def config_dir() -> Path:
     base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     return base / APP_NAME
+
+
+def legacy_config_path() -> Path:
+    base = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return base / LEGACY_APP_NAME / "keyd.config"
 
 
 def config_path() -> Path:
@@ -57,7 +67,13 @@ def resolve_editor() -> str:
 def ensure_config_file() -> Path:
     target = config_path()
     target.parent.mkdir(parents=True, exist_ok=True)
-    if not target.exists():
+    if target.exists():
+        return target
+
+    legacy = legacy_config_path()
+    if legacy.exists():
+        shutil.copy2(legacy, target)
+    else:
         shutil.copy2(ASSET_CONFIG, target)
     return target
 

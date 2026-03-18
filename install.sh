@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP="keyd_manager"
-REPO="ryangerardwilson/keyd_manager"
+APP="km"
+REPO="ryangerardwilson/km"
 APP_HOME="$HOME/.${APP}"
 INSTALL_DIR="$APP_HOME/bin"
 APP_DIR="$APP_HOME/app"
-FILENAME="keyd_manager-linux-x64.tar.gz"
-LEGACY_LAUNCHER="$HOME/.local/bin/${APP}"
+FILENAME="km-linux-x64.tar.gz"
+PRIMARY_LAUNCHER="$HOME/.local/bin/${APP}"
+LEGACY_APP="keyd_manager"
+LEGACY_APP_HOME="$HOME/.${LEGACY_APP}"
+LEGACY_LAUNCHER="$HOME/.local/bin/${LEGACY_APP}"
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'
@@ -81,6 +84,26 @@ die() {
   exit 1
 }
 
+write_primary_launcher() {
+  mkdir -p "$(dirname "$PRIMARY_LAUNCHER")"
+  cat > "${PRIMARY_LAUNCHER}" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+"${HOME}/.${APP}/bin/${APP}" "\$@"
+EOF
+  chmod 755 "${PRIMARY_LAUNCHER}"
+}
+
+remove_legacy_install() {
+  rm -f "$LEGACY_LAUNCHER"
+  rm -rf "$LEGACY_APP_HOME"
+}
+
+finalize_install() {
+  write_primary_launcher
+  remove_legacy_install
+}
+
 get_latest_version() {
   command -v curl >/dev/null 2>&1 || die "'curl' is required but not installed."
   if [[ -z "$latest_version_cache" ]]; then
@@ -110,6 +133,7 @@ if $upgrade; then
     installed_version="$(${APP} -v 2>/dev/null || true)"
     installed_version="${installed_version#v}"
     if [[ -n "$installed_version" && "$installed_version" == "$requested_version" ]]; then
+      finalize_install
       print_message info "${MUTED}${APP} version ${NC}${requested_version}${MUTED} already installed${NC}"
       exit 0
     fi
@@ -153,6 +177,7 @@ if command -v "${APP}" >/dev/null 2>&1; then
   installed_version="$(${APP} -v 2>/dev/null || true)"
   installed_version="${installed_version#v}"
   if [[ -n "$installed_version" && "$installed_version" == "$specific_version" ]]; then
+    finalize_install
     print_message info "${MUTED}${APP} version ${NC}${specific_version}${MUTED} already installed${NC}"
     exit 0
   fi
@@ -182,16 +207,7 @@ set -euo pipefail
 "${HOME}/.${APP}/app/${APP}/${APP}" "\$@"
 EOF
 chmod 755 "${INSTALL_DIR}/${APP}"
-
-if [[ -e "$LEGACY_LAUNCHER" ]]; then
-  mkdir -p "$(dirname "$LEGACY_LAUNCHER")"
-  cat > "$LEGACY_LAUNCHER" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-"${HOME}/.${APP}/bin/${APP}" "\$@"
-EOF
-  chmod 755 "$LEGACY_LAUNCHER"
-fi
+finalize_install
 
 add_to_path() {
   local config_file=$1

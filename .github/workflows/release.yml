@@ -28,21 +28,21 @@ jobs:
 
           sed -i -E "s/^__version__ = \".*\"/__version__ = \"${VERSION}\"/" _version.py
 
-          mkdir -p dist/keyd_manager/assets
-          cp main.py _version.py install.sh keyd_manager dist/keyd_manager/
-          cp assets/keyd.config dist/keyd_manager/assets/
-          chmod 755 dist/keyd_manager/keyd_manager
+          mkdir -p dist/km/assets
+          cp main.py _version.py install.sh km dist/km/
+          cp assets/keyd.config dist/km/assets/
+          chmod 755 dist/km/km
 
-          tar -C dist -czf keyd_manager-linux-x64.tar.gz keyd_manager
+          tar -C dist -czf km-linux-x64.tar.gz km
 
           ls -lah
-          test -f keyd_manager-linux-x64.tar.gz
+          test -f km-linux-x64.tar.gz
 
       - name: Create release and upload asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${TAG}" "${GITHUB_WORKSPACE}/keyd_manager-linux-x64.tar.gz" \
+          gh release create "${TAG}" "${GITHUB_WORKSPACE}/km-linux-x64.tar.gz" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "${TAG}" \
             --generate-notes

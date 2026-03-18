@@ -40,8 +40,22 @@ class MainContractTests(unittest.TestCase):
             env = {"XDG_CONFIG_HOME": temp_dir}
             result = run_app("conf", env={**env, "EDITOR": "/usr/bin/true"})
             self.assertEqual(result.returncode, 0)
-            target = Path(temp_dir) / "keyd_manager" / "keyd.config"
+            target = Path(temp_dir) / "km" / "keyd.config"
             self.assertTrue(target.exists())
+
+    def test_ensure_config_migrates_legacy_target(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            legacy_dir = Path(temp_dir) / "keyd_manager"
+            legacy_dir.mkdir()
+            legacy_config = legacy_dir / "keyd.config"
+            legacy_config.write_text("[ids]\n*\n", encoding="utf-8")
+
+            env = {"XDG_CONFIG_HOME": temp_dir}
+            result = run_app("conf", env={**env, "EDITOR": "/usr/bin/true"})
+            self.assertEqual(result.returncode, 0)
+
+            target = Path(temp_dir) / "km" / "keyd.config"
+            self.assertEqual(target.read_text(encoding="utf-8"), "[ids]\n*\n")
 
     def test_upgrade_invokes_install_script_with_dash_u(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -49,7 +63,7 @@ class MainContractTests(unittest.TestCase):
             install_script = Path(temp_dir) / "install.sh"
             install_script.write_text(
                 "#!/usr/bin/env bash\n"
-                "printf '%s\\n' \"$*\" > \"$KEYD_MARKER\"\n",
+                "printf '%s\\n' \"$*\" > \"$KM_MARKER\"\n",
                 encoding="utf-8",
             )
             install_script.chmod(0o755)
@@ -57,8 +71,8 @@ class MainContractTests(unittest.TestCase):
             result = run_app(
                 "-u",
                 env={
-                    "KEYD_MANAGER_INSTALL_SCRIPT": str(install_script),
-                    "KEYD_MARKER": str(marker),
+                    "KM_INSTALL_SCRIPT": str(install_script),
+                    "KM_MARKER": str(marker),
                 },
             )
 
