@@ -7,6 +7,7 @@ APP_HOME="$HOME/.${APP}"
 INSTALL_DIR="$APP_HOME/bin"
 APP_DIR="$APP_HOME/app"
 FILENAME="keyd_manager-linux-x64.tar.gz"
+LEGACY_LAUNCHER="$HOME/.local/bin/${APP}"
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'
@@ -182,6 +183,16 @@ set -euo pipefail
 EOF
 chmod 755 "${INSTALL_DIR}/${APP}"
 
+if [[ -e "$LEGACY_LAUNCHER" ]]; then
+  mkdir -p "$(dirname "$LEGACY_LAUNCHER")"
+  cat > "$LEGACY_LAUNCHER" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+"${HOME}/.${APP}/bin/${APP}" "\$@"
+EOF
+  chmod 755 "$LEGACY_LAUNCHER"
+fi
+
 add_to_path() {
   local config_file=$1
   local command=$2
@@ -235,4 +246,3 @@ if [[ "$no_modify_path" != "true" ]]; then
 fi
 
 print_message info "${MUTED}Run:${NC} ${APP} -h"
-
