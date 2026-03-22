@@ -23,7 +23,18 @@ km status
 ./install.sh -u
 ```
 
-That installs the latest released `km` into `~/.km/bin/km`, creates `~/.local/bin/km`, and removes the old `keyd_manager` install footprint.
+Manually add this to `~/.bashrc` if `~/.local/bin` is not already on your PATH,
+then reload your shell:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+source ~/.bashrc
+```
+
+That installs the latest released `km` into `~/.km/bin/km`, creates
+`~/.local/bin/km`, and removes the old `keyd_manager` install footprint. If
+you still have an old `keyd_manager` PATH line in `~/.bashrc`, remove it
+manually.
 
 ## Release
 

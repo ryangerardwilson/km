@@ -46,7 +46,7 @@ class InstallContractTests(unittest.TestCase):
 
             self.assertEqual(result.stdout.strip(), "0.1.0")
 
-    def test_upgrade_same_version_uses_dash_v(self):
+    def test_upgrade_same_version_uses_dash_v_without_editing_bashrc(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
             bin_dir = tmp_path / "bin"
@@ -93,7 +93,8 @@ class InstallContractTests(unittest.TestCase):
             )
 
             self.assertIn("already installed", result.stdout)
-            self.assertNotIn(".keyd_manager/bin", bashrc.read_text(encoding="utf-8"))
+            self.assertIn(".keyd_manager/bin", bashrc.read_text(encoding="utf-8"))
+            self.assertIn("$HOME/.local/bin", result.stdout)
 
 
 if __name__ == "__main__":

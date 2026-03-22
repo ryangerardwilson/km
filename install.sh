@@ -27,7 +27,7 @@ Options:
   -h                         Show this help and exit
   -v [<version>]             Print the latest release version, or install a specific one
   -u                         Upgrade to the latest release only when newer
-  -n                         Do not modify shell config to add to PATH
+  -n                         Compatibility no-op; installer never modifies shell config
       --help                 Compatibility alias for -h
       --version [<version>]  Compatibility alias for -v
       --upgrade              Compatibility alias for -u
@@ -38,7 +38,6 @@ EOF
 requested_version=${VERSION:-}
 show_latest=false
 upgrade=false
-no_modify_path=false
 latest_version_cache=""
 
 while [[ $# -gt 0 ]]; do
@@ -61,7 +60,6 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     -n|--no-modify-path)
-      no_modify_path=true
       shift
       ;;
     *)
@@ -99,44 +97,14 @@ remove_legacy_install() {
   rm -rf "$LEGACY_APP_HOME"
 }
 
-cleanup_legacy_path_entries() {
-  local bash_line="export PATH=${LEGACY_APP_HOME}/bin:\$PATH"
-  local fish_line="fish_add_path ${LEGACY_APP_HOME}/bin"
-  local config_file
-  local tmp_file
-
-  for config_file in \
-    "$HOME/.bashrc" \
-    "$HOME/.bash_profile" \
-    "$HOME/.profile" \
-    "$HOME/.zshrc" \
-    "$HOME/.zshenv" \
-    "$HOME/.config/bash/.bashrc" \
-    "$HOME/.config/bash/.bash_profile" \
-    "$HOME/.config/zsh/.zshrc" \
-    "$HOME/.config/zsh/.zshenv" \
-    "$HOME/.config/fish/config.fish"
-  do
-    [[ -f "$config_file" ]] || continue
-    tmp_file="$(mktemp)"
-    awk -v bash_line="$bash_line" -v fish_line="$fish_line" '
-      $0 != bash_line && $0 != fish_line { print }
-    ' "$config_file" > "$tmp_file"
-    if ! cmp -s "$config_file" "$tmp_file"; then
-      mv "$tmp_file" "$config_file"
-      print_message info "${MUTED}Removed legacy PATH entry from ${NC}$config_file"
-    else
-      rm -f "$tmp_file"
-    fi
-  done
-}
-
 finalize_install() {
   write_primary_launcher
   remove_legacy_install
-  if [[ "$no_modify_path" != "true" ]]; then
-    cleanup_legacy_path_entries
-  fi
+}
+
+print_manual_shell_steps() {
+  print_message info "${MUTED}Manually add to ~/.bashrc if needed:${NC} export PATH=\$HOME/.local/bin:\$PATH"
+  print_message info "${MUTED}Legacy cleanup:${NC} remove any old keyd_manager PATH line from ~/.bashrc manually if you still have one"
 }
 
 get_latest_version() {
@@ -169,6 +137,7 @@ if $upgrade; then
     installed_version="${installed_version#v}"
     if [[ -n "$installed_version" && "$installed_version" == "$requested_version" ]]; then
       finalize_install
+      print_manual_shell_steps
       print_message info "${MUTED}${APP} version ${NC}${requested_version}${MUTED} already installed${NC}"
       exit 0
     fi
@@ -213,6 +182,7 @@ if command -v "${APP}" >/dev/null 2>&1; then
   installed_version="${installed_version#v}"
   if [[ -n "$installed_version" && "$installed_version" == "$specific_version" ]]; then
     finalize_install
+    print_manual_shell_steps
     print_message info "${MUTED}${APP} version ${NC}${specific_version}${MUTED} already installed${NC}"
     exit 0
   fi
@@ -243,57 +213,5 @@ set -euo pipefail
 EOF
 chmod 755 "${INSTALL_DIR}/${APP}"
 finalize_install
-
-add_to_path() {
-  local config_file=$1
-  local command=$2
-
-  if grep -Fxq "$command" "$config_file" 2>/dev/null; then
-    print_message info "${MUTED}PATH entry already present in ${NC}$config_file"
-  elif [[ -w "$config_file" ]]; then
-    {
-      echo ""
-      echo "# ${APP}"
-      echo "$command"
-    } >> "$config_file"
-    print_message info "${MUTED}Added ${NC}${APP}${MUTED} to PATH in ${NC}$config_file"
-  else
-    print_message info "Add this to your shell config:"
-    print_message info "  $command"
-  fi
-}
-
-if [[ "$no_modify_path" != "true" ]]; then
-  if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
-    current_shell=$(basename "${SHELL:-bash}")
-
-    case "$current_shell" in
-      zsh)  config_candidates=("$HOME/.zshrc" "$HOME/.zshenv" "$XDG_CONFIG_HOME/zsh/.zshrc" "$XDG_CONFIG_HOME/zsh/.zshenv") ;;
-      bash) config_candidates=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile" "$XDG_CONFIG_HOME/bash/.bashrc" "$XDG_CONFIG_HOME/bash/.bash_profile") ;;
-      fish) config_candidates=("$HOME/.config/fish/config.fish") ;;
-      *)    config_candidates=("$HOME/.profile" "$HOME/.bashrc") ;;
-    esac
-
-    config_file=""
-    for f in "${config_candidates[@]}"; do
-      if [[ -f "$f" ]]; then
-        config_file="$f"
-        break
-      fi
-    done
-
-    if [[ -z "$config_file" ]]; then
-      print_message info "${MUTED}No shell config file found. Manually add:${NC}"
-      print_message info "  export PATH=$INSTALL_DIR:\$PATH"
-    else
-      if [[ "$current_shell" == "fish" ]]; then
-        add_to_path "$config_file" "fish_add_path $INSTALL_DIR"
-      else
-        add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
-      fi
-    fi
-  fi
-fi
-
+print_manual_shell_steps
 print_message info "${MUTED}Run:${NC} ${APP} -h"
