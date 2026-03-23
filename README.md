@@ -31,7 +31,7 @@ export PATH="$HOME/.local/bin:$PATH"
 source ~/.bashrc
 ```
 
-That installs the latest released `km` into `~/.km/bin/km`, creates
+That keeps the internal launcher at `~/.km/bin/km`, publishes
 `~/.local/bin/km`, and removes the old `keyd_manager` install footprint. If
 you still have an old `keyd_manager` PATH line in `~/.bashrc`, remove it
 manually.
