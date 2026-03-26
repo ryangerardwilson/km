@@ -17,6 +17,13 @@ ASSET_CONFIG = APP_ROOT / "assets" / "keyd.config"
 SYSTEM_CONFIG = Path("/etc/keyd/sticky_keys.conf")
 KEYD_SOCKET = Path("/var/run/keyd.socket")
 SYS_INPUT_ROOT = Path("/sys/class/input")
+REMAPPABLE_COPILOT_KEYS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
+    (0x247, "assistant", ("hotkeys", "wmi", "assistant")),
+    (193, "f23", ("hotkeys", "wmi", "copilot")),
+)
+UNSUPPORTED_COPILOT_KEYS: tuple[tuple[tuple[int, ...], tuple[str, ...]], ...] = (
+    ((0x252, 0x253, 0x279), ("dell", "hotkeys", "wmi", "intel hid")),
+)
 INSTALL_SCRIPT = Path(
     os.environ.get("KM_INSTALL_SCRIPT")
     or os.environ.get("KEYD_MANAGER_INSTALL_SCRIPT")
@@ -129,43 +136,69 @@ def _device_key_capabilities() -> list[tuple[str, set[int]]]:
     devices: list[tuple[str, set[int]]] = []
     for event_dir in sorted(SYS_INPUT_ROOT.glob("event*/device")):
         name_path = event_dir / "name"
-        caps_path = event_dir / "capabilities" / "key"
-        if not name_path.exists() or not caps_path.exists():
+        modalias_path = event_dir / "modalias"
+        if not name_path.exists():
             continue
         name = name_path.read_text(encoding="utf-8", errors="ignore").strip()
-        words = caps_path.read_text(encoding="utf-8", errors="ignore").split()
         supported: set[int] = set()
-        offset = 0
-        for word in words:
-            value = int(word, 16)
-            for bit_index in range(len(word) * 4):
-                if (value >> bit_index) & 1:
-                    supported.add(offset + bit_index)
-            offset += len(word) * 4
+        if modalias_path.exists():
+            modalias = modalias_path.read_text(encoding="utf-8", errors="ignore")
+            if ",k" in modalias:
+                key_section = modalias.split(",k", 1)[1].split(",r", 1)[0]
+                for token in key_section.split(","):
+                    token = token.strip()
+                    if not token:
+                        continue
+                    try:
+                        supported.add(int(token, 16))
+                    except ValueError:
+                        continue
         devices.append((name, supported))
     return devices
+
+
+def _should_skip_device(name: str) -> bool:
+    lowered = name.lower()
+    return "keyd virtual" in lowered or "makima virtual" in lowered
 
 
 def detect_copilot_key_name() -> str | None:
     for name, supported in _device_key_capabilities():
         lowered = name.lower()
-        if "keyd virtual" in lowered:
+        if _should_skip_device(name):
             continue
-        if 0x247 in supported and ("hotkeys" in lowered or "wmi" in lowered or "assistant" in lowered):
-            return "assistant"
-        if 193 in supported and ("hotkeys" in lowered or "wmi" in lowered or "copilot" in lowered):
-            return "f23"
+        for code, key_name, hints in REMAPPABLE_COPILOT_KEYS:
+            if code in supported and any(hint in lowered for hint in hints):
+                return key_name
     return None
 
 
-def render_system_config(source: Path) -> str:
+def detect_copilot_detection_warning() -> str | None:
+    for name, supported in _device_key_capabilities():
+        lowered = name.lower()
+        if _should_skip_device(name):
+            continue
+        for codes, hints in UNSUPPORTED_COPILOT_KEYS:
+            present_codes = [f"0x{code:x}" for code in codes if code in supported]
+            if present_codes and any(hint in lowered for hint in hints):
+                joined_codes = ", ".join(present_codes)
+                return (
+                    f"Detected {name} exposing Linux keycodes {joined_codes}, "
+                    "which this keyd workflow cannot remap automatically as a "
+                    "Copilot key on this machine."
+                )
+    return None
+
+
+def render_system_config(source: Path) -> tuple[str, str | None]:
     text = source.read_text(encoding="utf-8")
     copilot_key = detect_copilot_key_name()
     if not copilot_key:
-        return text
+        return text, detect_copilot_detection_warning()
     if f"\n{copilot_key} =" in f"\n{text}":
-        return text
-    return text.rstrip() + f"\n\n# Auto-detected laptop Copilot key\n{copilot_key} = oneshot(control)\n"
+        return text, None
+    rendered = text.rstrip() + f"\n\n# Auto-detected laptop Copilot key\n{copilot_key} = oneshot(control)\n"
+    return rendered, None
 
 
 def apply_config() -> int:
@@ -175,7 +208,7 @@ def apply_config() -> int:
     if rc != 0:
         return rc
 
-    rendered = render_system_config(source)
+    rendered, detection_warning = render_system_config(source)
     tmp_path = config_dir() / ".rendered-keyd.config"
     tmp_path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path.write_text(rendered, encoding="utf-8")
@@ -231,6 +264,8 @@ def apply_config() -> int:
             return reload_result.returncode
 
     print(f"Installed {source} -> {SYSTEM_CONFIG}")
+    if detection_warning:
+        print(detection_warning, file=sys.stderr)
     print("keyd config applied.")
     return 0
 
